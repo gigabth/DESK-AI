@@ -1,0 +1,42 @@
+{
+  "appId": "com.deskspace.pro",
+  "productName": "DeskSpace AI Pro",
+  "copyright": "Copyright © 2024 DeskSpace Team",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json",
+    "public/**/*"
+  ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "YOUR_GITHUB_USERNAME",
+      "repo": "YOUR_REPO_NAME"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "DeskSpace AI Pro",
+    "installerIcon": "public/icon.ico",
+    "uninstallerIcon": "public/icon.ico",
+    "uninstallDisplayName": "Uninstall DeskSpace AI Pro"
+  }
+}

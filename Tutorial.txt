@@ -1,0 +1,117 @@
+================================================================================
+คู่มือการติดตั้ง DeskSpace AI Pro และการตั้งค่า n8n (ฉบับจับมือทำ)
+================================================================================
+
+ส่วนที่ 1: การติดตั้งโปรแกรม Front-end (DeskSpace Desktop App)
+--------------------------------------------------------------------------------
+
+สิ่งที่ต้องมีก่อนเริ่ม (Prerequisites):
+1. Node.js (ดาวน์โหลดเวอร์ชัน LTS ที่ https://nodejs.org/)
+2. VS Code (Text Editor สำหรับแก้โค้ด)
+3. Git (ถ้ามีจะดีมาก แต่ถ้าไม่มีก็ใช้วิธีสร้างไฟล์เองได้)
+
+ขั้นตอนการติดตั้ง:
+
+1. สร้างโฟลเดอร์โปรเจกต์
+   - สร้างโฟลเดอร์ใหม่ที่หน้า Desktop ชื่อ "DeskSpace-Pro"
+
+2. สร้างไฟล์ตามโครงสร้าง (Copy โค้ดจากแชทก่อนหน้ามาใส่)
+   - เปิด VS Code แล้วลากโฟลเดอร์ "DeskSpace-Pro" เข้ามา
+   - สร้างไฟล์และโฟลเดอร์ตามโครงสร้างนี้:
+     
+     DeskSpace-Pro/
+     ├── electron/
+     │   └── main.js
+     ├── public/
+     │   └── icon.ico  (แปลงไฟล์ Logo เป็น .ico แล้วนำมาวางตั้งชื่อนี้)
+     ├── src/
+     │   ├── components/
+     │   │   ├── ControlPanel.tsx
+     │   │   └── PreviewGallery.tsx
+     │   ├── services/
+     │   │   └── workflowService.ts
+     │   ├── App.tsx
+     │   ├── constants.ts
+     │   ├── types.ts
+     │   └── index.tsx
+     ├── forge.config.js
+     ├── index.html
+     ├── metadata.json
+     ├── package.json
+     ├── tsconfig.json (สร้างไฟล์เปล่าแล้วใส่ {} หรือ copy default config มา)
+     └── vite.config.ts
+
+3. ติดตั้ง Library (Dependencies)
+   - ใน VS Code กดเมนู Terminal > New Terminal
+   - พิมพ์คำสั่งแล้วกด Enter:
+     npm install
+
+4. การทดสอบรันโปรแกรม (Developer Mode)
+   - พิมพ์คำสั่ง:
+     npm run electron:dev
+   - หน้าต่างโปรแกรม DeskSpace สีขาวทองควรจะเด้งขึ้นมา
+
+5. การสร้างไฟล์ติดตั้ง .exe (Production Build)
+   - พิมพ์คำสั่ง:
+     npm run electron:make
+   - รอสักพัก เมื่อเสร็จแล้วไฟล์ .exe จะอยู่ที่โฟลเดอร์:
+     out/make/squirrel.windows/x64/DeskSpaceAI-Setup.exe
+
+================================================================================
+ส่วนที่ 2: การตั้งค่า n8n (Back-end Workflow)
+================================================================================
+
+1. การติดตั้ง n8n
+   - หากยังไม่มี n8n แนะนำให้ติดตั้งเวอร์ชัน Desktop (ง่ายที่สุด) หรือติดตั้งผ่าน npm
+   - คำสั่งติดตั้งผ่าน npm (ถ้ามี Node.js แล้ว):
+     npm install n8n -g
+   - วิธีรัน n8n: พิมพ์คำสั่ง `n8n start` ใน Terminal หรือ Command Prompt
+
+2. การ Import Workflow
+   - เปิด n8n ใน Browser (ปกติคือ http://localhost:5678)
+   - สร้าง Workflow ใหม่
+   - กดปุ่ม "..." ที่มุมขวาบน เลือก "Import from File"
+   - เลือกไฟล์ "n8n_workflow.json" (ที่ผมแนบให้ใน XML ด้านล่าง)
+   - Workflow จะปรากฏขึ้นมาพร้อมเส้นเชื่อมโยง Logic ทั้งหมด
+
+3. การตั้งค่า Credential ใน n8n (สำคัญมาก!)
+   หลังจาก Import แล้ว คุณจะเห็น Node ต่างๆ ให้เข้าไปแก้ไขค่าดังนี้:
+
+   A. Google Gemini API (Node ชื่อ: "Gemini - Draft Plan" และ "Gemini - Tech Prompt")
+      - ดับเบิ้ลคลิกที่ Node
+      - ในส่วน Credential ให้เลือก "Create New Credential"
+      - เลือก "Google Gemini (PaLM) API" หรือ "Generic Header Auth"
+      - ใส่ API Key ที่ได้จาก https://aistudio.google.com/
+   
+   B. Google Drive (Node ชื่อ: "Google Drive - List Files")
+      - *ใน Workflow ตัวอย่างผมใส่เป็น Mock Data ไว้ก่อน* หากต้องการใช้จริง:
+      - ลาก Node "Google Drive" มาวาง
+      - เชื่อมต่อ Credential Google Drive (OAuth2)
+      - ตั้งค่าให้อ่านไฟล์จาก Folder ID ที่ระบุ
+
+   C. Image Generation API (Node ชื่อ: "HTTP Request - Generate Image")
+      - *ใน Workflow นี้ผมทำ Mock Response ไว้* เพื่อให้ Front-end ทำงานได้เลยโดยไม่ต้องเสียเงินค่า Gen ภาพจริง
+      - หากต้องการต่อกับ Kie.ai หรือบริการอื่น ให้แก้ URL และ Header ใน Node นี้
+
+4. การเชื่อมต่อ Front-end กับ n8n (Webhook URL)
+   - ใน n8n ดับเบิ้ลคลิกที่ Node "Webhook" (ตัวแรกสุดซ้ายมือ)
+   - ดูที่ Production URL หรือ Test URL
+   - หากรันบนเครื่องตัวเอง (Localhost) URL จะเป็น http://localhost:5678/webhook/deskspace-gen
+   - **สำคัญ:** หาก Front-end กับ n8n อยู่คนละเครื่อง หรือต้องการทดสอบผ่านเน็ต ต้องใช้ ngrok
+     - รัน ngrok: `ngrok http 5678`
+     - ก๊อปปี้ URL ที่ได้ (เช่น https://xxxx.ngrok-free.app)
+   - นำ URL นี้ไปแก้ในไฟล์ `src/constants.ts` ของ Front-end:
+     export const N8N_WEBHOOK_URL = "https://xxxx.ngrok-free.app/webhook/deskspace-gen";
+
+================================================================================
+สรุปภาพรวมการทำงาน
+================================================================================
+1. User กด "Generate Master Plan" ในแอป
+2. แอปส่งข้อมูลไปที่ n8n Webhook
+3. n8n วิ่งไปเส้นทาง "generate_draft_plan" -> ถาม Gemini -> ส่ง JSON แผนงานกลับมา
+4. แอปแสดงรายการภาพ (Waiting)
+5. User กด Sync -> แอปดึงข้อความมาแสดง
+6. User กด "Generate Prompt" -> n8n วิ่งเส้น "generate_final_prompt" -> ถาม Gemini แปลงเป็น Prompt ภาษาอังกฤษ -> ส่งกลับ
+7. User กด "Render Image" -> n8n วิ่งเส้น "generate_image" -> สั่ง AI Gen ภาพ -> ส่ง URL ภาพกลับมาแสดง
+
+ขอให้สนุกกับการใช้งาน DeskSpace AI Pro ครับ!

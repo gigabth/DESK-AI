@@ -1,0 +1,142 @@
+
+/**
+ * DeskSpace AppScript API v1.2
+ * สำหรับจัดการ Folder และ ค้นหาสินค้าจาก Google Sheets โดยตรง
+ */
+
+const ROOT_FOLDER_ID = "17jWKLkeADFB4A0CTrTMwEZ1VFLvt_iD9"; 
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('👉 DeskSpace Tools')
+      .addItem('📂 สร้าง Folders ตาม SKU', 'createFoldersFromSKU')
+      .addToUi();
+}
+
+/**
+ * ฟังก์ชันสร้าง Folder ตามแบรนด์และ SKU
+ */
+function createFoldersFromSKU() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+  const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
+  
+  for (let i = 1; i < data.length; i++) {
+    const sku = data[i][0]; 
+    const brand = data[i][1]; 
+    const variants = data[i][4]; 
+    
+    if (!sku || !brand) continue;
+
+    // 1. Brand Folder
+    let brandFolder;
+    const brandFolders = rootFolder.getFoldersByName(brand);
+    if (brandFolders.hasNext()) {
+      brandFolder = brandFolders.next();
+    } else {
+      brandFolder = rootFolder.createFolder(brand);
+    }
+
+    // 2. SKU Folder
+    let skuFolder;
+    const skuFolders = brandFolder.getFoldersByName(sku);
+    if (skuFolders.hasNext()) {
+      skuFolder = skuFolders.next();
+    } else {
+      skuFolder = brandFolder.createFolder(sku);
+    }
+
+    // บันทึก URL และ ID กลับลง Sheet
+    sheet.getRange(i + 1, 6).setValue(skuFolder.getUrl()); // Column F
+    sheet.getRange(i + 1, 7).setValue(skuFolder.getId());  // Column G
+
+    // 3. Variants
+    if (variants) {
+      const variantList = variants.split(',').map(v => v.trim());
+      variantList.push("Default");
+      variantList.forEach(variant => {
+        if(variant) {
+          const vFolders = skuFolder.getFoldersByName(variant);
+          if (!vFolders.hasNext()) skuFolder.createFolder(variant);
+        }
+      });
+    }
+  }
+  SpreadsheetApp.getUi().alert('✅ อัปเดตข้อมูล Folder ID เรียบร้อยแล้ว!');
+}
+
+/**
+ * Web API สำหรับแอป Frontend
+ */
+function doGet(e) {
+  var action = e.parameter.action;
+  var query = e.parameter.q || e.parameter.query || "";
+  
+  if (action == "search") {
+    return searchProducts(query);
+  }
+  return ContentService.createTextOutput("DeskSpace API Active");
+}
+
+function searchProducts(query) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({ products: [] }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var headers = data[0].map(h => String(h).toLowerCase().trim());
+  var idx = {
+    sku: headers.findIndex(h => h.includes('sku') || h.includes('code')),
+    brand: headers.findIndex(h => h.includes('brand') || h.includes('แบรนด์')),
+    name: headers.findIndex(h => h.includes('product') || h.includes('name') || h.includes('ชื่อ')),
+    variant: headers.findIndex(h => h.includes('variant') || h.includes('color')),
+    folderId: headers.findIndex(h => h.includes('folder') && h.includes('id'))
+  };
+  
+  // Fallbacks
+  if (idx.sku === -1) idx.sku = 0;
+  if (idx.brand === -1) idx.brand = 1;
+  if (idx.name === -1) idx.name = 2;
+  if (idx.variant === -1) idx.variant = 4;
+  if (idx.folderId === -1) idx.folderId = 6;
+
+  var results = [];
+  var searchKey = query.toString().toLowerCase().trim();
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var sku = String(row[idx.sku] || "").trim();
+    var brand = String(row[idx.brand] || "").trim();
+    var name = String(row[idx.name] || "").trim();
+    var displayName = name !== "" ? name : sku;
+
+    if (displayName.toLowerCase().includes(searchKey) || sku.toLowerCase().includes(searchKey) || brand.toLowerCase().includes(searchKey)) {
+      results.push({
+        id: "row-" + i,
+        name: displayName,
+        brand: brand,
+        sku: sku,
+        driveFolderId: row[idx.folderId] || "",
+        variants: parseVariants(row[idx.variant], sku)
+      });
+    }
+    if (results.length >= 20) break;
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({ products: results }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function parseVariants(variantString, baseSku) {
+  var list = [{ name: "Standard", sku: baseSku }];
+  if (variantString && String(variantString).trim() !== "") {
+    String(variantString).split(",").forEach(v => {
+      var vName = v.trim();
+      if(vName) list.push({ name: vName, sku: baseSku + "-" + vName.replace(/\s+/g, '') });
+    });
+  }
+  return list;
+}
